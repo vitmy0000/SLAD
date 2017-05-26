@@ -7,7 +7,7 @@ object PIC {
   def powerIterationClustering(
       sc: SparkContext,
       landmarks: List[SeqAsKmerCnt],
-      diameter: Double,
+      radius: Double,
       numCluster: Int,
       numIteration: Int)
     : Option[Map[Int, Int]] = {
@@ -23,13 +23,17 @@ object PIC {
         None
       }
     }.cache()
-    val estimatedDiameter = 1 -
-        pairwiseSimilarity.min()(new Ordering[Tuple3[Long, Long, Double]]() {
-      override def compare(x: (Long, Long, Double), y: (Long, Long, Double)): Int =
-          Ordering[Double].compare(x._3, y._3)
-    })._3
-    println(f"\tEstimated diameter: $estimatedDiameter%.4f")
-    if (estimatedDiameter <= diameter) {
+    
+    val sumDist = new Array[Double](landmarks.size)
+    pairwiseSimilarity.collect().map {
+      case (i, j, sim) => {
+        sumDist(i.toInt) += 1 - sim
+        sumDist(j.toInt) += 1 - sim
+      }
+    }
+    val estimatedRadius = sumDist.min / (landmarks.size - 1)
+    println(f"\tEstimated radius: $estimatedRadius%.4f")
+    if (estimatedRadius <= radius) {
       None
     } else {
       val model = new PowerIterationClustering()

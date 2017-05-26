@@ -44,19 +44,19 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
               |Required to be posotive integer.           |
               |Default: 2 """
               .stripMargin.replace("|\n", " "))
-  val diameter = opt[Double](default = Some(0.3),
+  val radius = opt[Double](default = Some(0.15),
     noshort = true, validate = (x => x > 0 && x < 1),
-    descr = """Clusters with diameter smaller than this   |
+    descr = """Clusters with radius smaller than this   |
               |threshold will not be further partitioned. |
               |Required to be a double between 0 and 1.   |
-              |Default: 0.3 """
+              |Default: 0.15 """
               .stripMargin.replace("|\n", " "))
-  val minSize = opt[Int](default = Some(1000),
-    noshort = true, validate = (1000<=),
+  val minSize = opt[Int](default = Some(100),
+    noshort = true, validate = (0<=),
     descr = """Clusters with size smaller than this       |
               |threshold will not be further partitioned. |
-              |Required to be positive integer >= 1000    |
-              |Default: 1000 """
+              |Required to be positive integer >= 100    |
+              |Default: 100 """
               .stripMargin.replace("|\n", " "))
   val numLeaveCluster = opt[Int](default = Some(0),
     noshort = true, validate = (0<=),
@@ -65,11 +65,11 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
               |Required to be posotive integer or 0.      |
               |Default: 0 """
               .stripMargin.replace("|\n", " "))
-  val numPowerIteration = opt[Int](default = Some(20),
+  val numPowerIteration = opt[Int](default = Some(10),
     noshort = true, validate = (0<),
     descr = """Number of PIC iterations.                  |
               |Required to be posotive integer.           |
-              |Default: 20 """
+              |Default: 10 """
               .stripMargin.replace("|\n", " "))
   val randomSeed = opt[Long](default = Some(0L),
     noshort = true,
@@ -96,7 +96,7 @@ object Program {
     val sladOutputDir = sladConf.outputDir()
     val sladWordSize = sladConf.wordSize()
     val sladAbundance = sladConf.abundance()
-    val sladDiameter = sladConf.diameter()
+    val sladRadius = sladConf.radius()
     val sladMinSize = sladConf.minSize()
     val sladNumLeaveCluster = sladConf.numLeaveCluster()
     val sladNumPowerIteration = sladConf.numPowerIteration()
@@ -136,13 +136,13 @@ object Program {
     }.coalesce(sc.defaultParallelism).map { case (read, headers) =>
       new SeqAsKmerCnt(read, sladWordSize)
     }.persist(StorageLevel.MEMORY_ONLY_SER)//.cache()
-    //println("sc.defaultParallelism: %d".format(sc.defaultParallelism))
+    inputStrDerep.unpersist()
     println("Abundant sequence number: %d".format(seqs.count()))
 
     val random: Random = new Random(sladRandomSeed)
     val slad = new SLAD(
         sc, random, sladNumPowerIteration,
-        sladNumLeaveCluster, sladDiameter, sladMinSize)
+        sladNumLeaveCluster, sladRadius, sladMinSize)
     val (clusterIndcies, leaveClusterLandmarkInfo)
         : (RDD[Int], Map[Int, List[String]]) = slad.run(seqs)
 

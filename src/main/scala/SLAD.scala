@@ -7,13 +7,14 @@ import scala.math
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
+import scala.util.control.Breaks._
 
 class SLAD (
     private val sc: SparkContext,
     private val random: Random,
     private val numPowerIteration: Int,
     private val numLeaveCluster: Int,
-    private val diameter: Double,
+    private val radius: Double,
     private val minSize: Int) {
 
   def run(seqs: RDD[SeqAsKmerCnt])
@@ -29,15 +30,18 @@ class SLAD (
         mutable.Map(1 -> totalSeqNum)
     val leaveClusterLandmarkInfo: mutable.Map[Int, List[String]] = mutable.Map()
 
-    while (divisibleClusterSizeInfo.size != 0 && currentSize > minSize &&
+    breakable { while (divisibleClusterSizeInfo.size != 0 &&
         (numLeaveCluster == 0 || currentNumLeaveCluster < numLeaveCluster) ) {
       // choose largest cluster for partitioning
-      val partitioningClusterIndex = divisibleClusterSizeInfo.maxBy(_._2)._1
-      currentSize = divisibleClusterSizeInfo(partitioningClusterIndex)
+      val (partitioningClusterIndex, partitioningSize) 
+          = divisibleClusterSizeInfo.maxBy(_._2)
+      if (partitioningSize <= minSize) {
+        break
+      }
       divisibleClusterSizeInfo -= partitioningClusterIndex
-      println(s"Partitioning Cluster: $partitioningClusterIndex($currentSize)")
+      println(s"Partitioning Cluster: $partitioningClusterIndex($partitioningSize)")
       val landmarkQuota: Int =
-          math.ceil(math.log(currentSize) / math.log(2)).toInt
+          math.ceil(math.log(partitioningSize) / math.log(2)).toInt
       val mask: RDD[Boolean] =
           clusterIndcies.map { _ == partitioningClusterIndex }.cache()
       val (landmarks, distRecords): (List[SeqAsKmerCnt], List[RDD[Double]]) =
@@ -45,12 +49,12 @@ class SLAD (
 
       println("\tPower iteration clustering...")
       val picResult = PIC.powerIterationClustering(
-        sc, landmarks, diameter, 2, numPowerIteration)
+        sc, landmarks, radius, 2, numPowerIteration)
 
       if (picResult.isEmpty) {
         leaveClusterLandmarkInfo +=
             (partitioningClusterIndex -> landmarks.map(_.getRead))
-        println("\tDiameter condition satisfied!")
+        println("\tRadius condition satisfied!")
       } else {
         val landmarkAssignmentSummary: Map[Int, List[Int]] =
             picResult.get.groupBy(_._2).map {
@@ -74,12 +78,12 @@ class SLAD (
         print(s"\tSplit to: $leftChildIndex(${leaveClusterSizeInfo(leftChildIndex)})")
         println(s" $rightChildIndex(${leaveClusterSizeInfo(rightChildIndex)})")
         println(leaveClusterSizeInfo)
-      }
+      } 
 
       // clean
       mask.unpersist()
       distRecords.map(_.unpersist())
-    }
+    } } // while breakable
 
     // return
     (clusterIndcies, leaveClusterLandmarkInfo.toMap)
