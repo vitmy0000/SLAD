@@ -16,7 +16,7 @@ import org.rogach.scallop._
 import scala.collection.mutable
 import scala.collection.JavaConversions._
 import scala.util.Random
-import java.io.File
+import java.io._
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   version("Version 0.1.0 (C) 2016 Wei Zheng")
