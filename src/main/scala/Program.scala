@@ -1,5 +1,9 @@
 package com.weiz.slad
 
+import com.amazonaws.auth.AWSCredentials
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3Client
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
@@ -10,8 +14,9 @@ import org.apache.spark.HashPartitioner
 
 import org.rogach.scallop._
 import scala.collection.mutable
+import scala.collection.JavaConversions._
 import scala.util.Random
-import java.io._
+import java.io.File
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   version("Version 0.1.0 (C) 2016 Wei Zheng")
@@ -22,13 +27,19 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
            """.stripMargin)
   footer("\nFor all other tricks, consult the documentation!")
 
-  val inputFilePath = opt[String](required = true,
-    descr = """(REQUIRED)Input fasta file.""")
+  val inputDir = opt[String](required = true,
+    descr = """(REQUIRED)Input directory.""")
   val outputDir = opt[String](required = true,
     descr = """(REQUIRED)Output directory.                |
               |Directory will be created automatically.   |
               |Make sure the directory does not exisit.   |
               |Default: "./slad_results" """
+              .stripMargin.replace("|\n", " "))
+  val awsAccessId = opt[String](required = true,
+    descr = """(REQUIRED)AWS_ACCESS_KEY_ID"""
+              .stripMargin.replace("|\n", " "))
+  val awsAccessKey = opt[String](required = true,
+    descr = """(REQUIRED)AWS_SECRET_ACCESS_KEY"""
               .stripMargin.replace("|\n", " "))
   val wordSize = opt[Int](default = Some(8),
     noshort = true, validate = (x => x > 0 && x < 16),
@@ -81,6 +92,32 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
 }
 
 object Program {
+  def getListOfFilePaths(
+      s3dir: String,
+      awsAccessId: String,
+      awsAccessKey: String): List[String] = {
+    val credentials: AWSCredentials = new BasicAWSCredentials(
+        awsAccessId, awsAccessKey)
+    val s3client: AmazonS3= new AmazonS3Client(credentials)
+    val pattern = "s3://(.+?)/(.+)/?".r
+    val pattern(bucket, folder) = s3dir
+    val fileList = s3client.listObjects(bucket, folder)
+      .getObjectSummaries.toList
+      .filter(x => x.getSize > 0)
+      .map(x => s3dir + "/" + (new File(x.getKey)).getName)
+    fileList
+  }
+
+  // assume single line read
+  def loadFile(fp: String, sc: SparkContext): RDD[(String, String)] = {
+    println("Loading file: %s".format(fp))
+    sc.textFile(fp)
+      .filter(_.size > 0)
+      .map(_.split("\n") match {
+        case Array(header, read) => (read, header)
+      })
+  }
+
   def main(args: Array[String]) {
     println("""
             |        ____  _        _    ____
@@ -92,8 +129,10 @@ object Program {
 
     // init
     val sladConf = new Conf(args)
-    val sladInputFilePath = sladConf.inputFilePath()
+    val sladInputDir = sladConf.inputDir()
     val sladOutputDir = sladConf.outputDir()
+    val sladAwsAccessId = sladConf.awsAccessId()
+    val sladAwsAccessKey = sladConf.awsAccessKey()
     val sladWordSize = sladConf.wordSize()
     val sladAbundance = sladConf.abundance()
     val sladRadius = sladConf.radius()
@@ -109,35 +148,53 @@ object Program {
     // LOAD INPUT
     println("Loading input...")
     sc.hadoopConfiguration.set("textinputformat.record.delimiter", ">")
-    val inputStr = sc.textFile(sladInputFilePath, sc.defaultParallelism)
-        .filter(_.size > 0) // need to remove first empty string
-    println("Partition number: " + inputStr.getNumPartitions)
-    println("Input sequence number: %d".format(inputStr.count()))
+
+    val inputFiles: List[String] = getListOfFilePaths(
+        sladInputDir, sladAwsAccessId, sladAwsAccessKey)
+    println("Input files:")
+    inputFiles.foreach(println)
 
     // DEREPLICATION
-    println("Dereplicating...")
-    val inputStrDerep: RDD[(String, mutable.HashSet[String])] =
-      inputStr.map(_.replaceFirst("\\n", "\n\u0000")
-      .replace("\u0000", "").split("\n") match {
-        case Array(header, read) => (read, header)
-      }).aggregateByKey(mutable.HashSet.empty[String])(
+    inputFiles.map { case inputFilePath =>
+      loadFile(inputFilePath, sc).aggregateByKey(mutable.HashSet.empty[String])(
         //addToHeaderSet, mergeHeaderSets
         (s: mutable.HashSet[String], v: String) => s += v,
         (s1: mutable.HashSet[String], s2: mutable.HashSet[String]) => s1 ++= s2)
-      .cache()
-    println("Unique sequence number: %d".format(inputStrDerep.count()))
-    inputStrDerep.map {
-      case (read, headers) => s">$headers\n$read"
-    }.saveAsTextFile(sladOutputDir + "/derep")
+      .map {
+        case (read, headers) => s">$headers\n$read"
+      }.saveAsTextFile(sladOutputDir + "/derep/" +
+          (new File(inputFilePath)).getName() + "/")
+    }
 
-    // AUNDANCE FILTERING and KMER CONVERSION
-    val seqs: RDD[SeqAsKmerCnt] = inputStrDerep.filter { case (read, headers) =>
-      headers.size >= sladAbundance
-    }.coalesce(sc.defaultParallelism).map { case (read, headers) =>
+    // RELOAD DEREPLICATED FILES
+    // ABUNDANCE FILTER
+    val nonTrivialReads: RDD[(String, Int)] = inputFiles.map {
+        case inputFilePath =>
+      getListOfFilePaths(
+        sladOutputDir + "/derep/" + (new File(inputFilePath)).getName() + "/",
+        sladAwsAccessId, sladAwsAccessKey)
+      .filter(_.contains("part"))
+      .map(fp => loadFile(fp, sc))
+      .reduce(_ union _)
+      .map { case (read, header) =>
+        (read, header.split(", ").size)
+      }.filter { case (header, cnt) =>
+        cnt >= sladAbundance
+      }
+    }.reduce(_ union _)
+    .coalesce(sc.defaultParallelism)
+    .cache
+    .localCheckpoint
+    println("Abundant sequence number: %d".format(nonTrivialReads.count()))
+
+    // PARSE
+    println("Parsing...")
+    val seqs: RDD[SeqAsKmerCnt] = nonTrivialReads.map {
+        case (read, abundance) =>
       new SeqAsKmerCnt(read, sladWordSize)
-    }.persist(StorageLevel.MEMORY_ONLY_SER)//.cache()
-    inputStrDerep.unpersist()
-    println("Abundant sequence number: %d".format(seqs.count()))
+    }.cache.localCheckpoint
+    seqs.count()
+    nonTrivialReads.unpersist()
 
     val random: Random = new Random(sladRandomSeed)
     val slad = new SLAD(
