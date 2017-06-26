@@ -209,7 +209,7 @@ object Program {
 
 
 
-    val file = new File(sladOutputDir + "/landmarks.fa")
+    val file = new File("landmarks.fa")
     val bw = new BufferedWriter(new FileWriter(file))
     bw.write(
       leaveClusterLandmarkInfo.map { case (clusterIndex, landmarks) =>
