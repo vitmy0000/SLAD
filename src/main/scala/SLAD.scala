@@ -192,7 +192,7 @@ class SLAD (
         val momDist = medians.sortWith((a, b) => a._2._2 < b._2._2)
             .apply(medians.size / 2)._2._2
         lastLandmark = mask.zip(seqs.zip(distsToLandmarkSet)).filter {
-          case (flag, (seq, dist)) => flag && dist > momDist
+          case (flag, (seq, dist)) => flag && dist >= momDist
         }.takeSample(withReplacement=false, num=1, seed=random.nextLong)(0)._2._1
         landmarks += lastLandmark
       } // if
