@@ -192,7 +192,8 @@ object Program {
     val seqs: RDD[SeqAsKmerCnt] = nonTrivialReads.map {
         case (read, abundance) =>
       new SeqAsKmerCnt(read, sladWordSize)
-    }.cache.localCheckpoint
+    }.cache
+    .localCheckpoint
     seqs.count()
     nonTrivialReads.unpersist()
 

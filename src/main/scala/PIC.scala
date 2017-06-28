@@ -14,7 +14,7 @@ object PIC {
     // Map(landmarkIndex -> childLeftRightBinary 0/1)
     val indexedLandmarks = sc.parallelize(landmarks).zipWithIndex
     val pairwiseSimilarity = indexedLandmarks.cartesian(indexedLandmarks)
-        .coalesce(sc.defaultParallelism)
+        .coalesce(sc.defaultParallelism / 4)
         .flatMap { case ((seq0, i0), (seq1, i1)) =>
       if (i0 < i1) {
         Some((i0.toLong, i1.toLong, 1 - SeqUtil.nwDist(seq0.getRead, seq1.getRead)))
@@ -23,7 +23,7 @@ object PIC {
         None
       }
     }.cache()
-    
+
     val sumDist = new Array[Double](landmarks.size)
     pairwiseSimilarity.collect().map {
       case (i, j, sim) => {
