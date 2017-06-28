@@ -33,7 +33,7 @@ class SLAD (
     breakable { while (divisibleClusterSizeInfo.size != 0 &&
         (numLeaveCluster == 0 || currentNumLeaveCluster < numLeaveCluster) ) {
       // choose largest cluster for partitioning
-      val (partitioningClusterIndex, partitioningSize) 
+      val (partitioningClusterIndex, partitioningSize)
           = divisibleClusterSizeInfo.maxBy(_._2)
       if (partitioningSize <= minSize) {
         break
@@ -78,7 +78,7 @@ class SLAD (
         print(s"\tSplit to: $leftChildIndex(${leaveClusterSizeInfo(leftChildIndex)})")
         println(s" $rightChildIndex(${leaveClusterSizeInfo(rightChildIndex)})")
         println(leaveClusterSizeInfo)
-      } 
+      }
 
       // clean
       mask.unpersist()
@@ -166,12 +166,13 @@ class SLAD (
         } else {
           0.0
         }
-      }.cache()
+      }.cache().localCheckpoint()
       distsToLandmark.count()
       distRecords += distsToLandmark
       distsToLandmarkSet = distsToLandmarkSet.zip(distsToLandmark).map {
         case (minDist, newDist) => math.min(minDist, newDist)
-      }
+      }.cache().localCheckpoint()
+      distsToLandmarkSet.count()
 
       // skip if this is the final landmark
       if (iter < quota) {
