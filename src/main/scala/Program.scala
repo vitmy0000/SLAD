@@ -9,8 +9,8 @@ import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.HashPartitioner
-// import org.apache.log4j.Logger
-// import org.apache.log4j.Level
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
 
 import org.rogach.scallop._
 import scala.collection.mutable
@@ -144,6 +144,7 @@ object Program {
     sparkConf.setAppName("SLAD Application")
     val sc = new SparkContext(sparkConf)
     // Logger.getRootLogger.setLevel(Level.DEBUG)
+    Logger.getRootLogger.setLevel(Level.ERROR)
 
     // LOAD INPUT
     println("Loading input...")
