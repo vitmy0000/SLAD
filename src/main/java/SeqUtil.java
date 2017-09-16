@@ -45,12 +45,12 @@ public class SeqUtil {
     int gapOpenPenalty = 10;
     int gapExtendPenalty = 1;
 
-    for (int i = 1; i < len1; i++) {
+    for (int i = 1; i <= len1; i++) {
       M[i][0] = -999999999;
       X[i][0] = -999999999;
       Y[i][0] = -gapOpenPenalty - i * gapExtendPenalty;
     }
-    for (int j = 1; j < len2; j++) {
+    for (int j = 1; j <= len2; j++) {
       M[0][j] = -999999999;
       X[0][j] = -gapOpenPenalty - j * gapExtendPenalty;
       Y[0][j] = -999999999;
