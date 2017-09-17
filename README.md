@@ -29,7 +29,6 @@ brew install sbt
 ```
 
 Download [Apache Spark](https://spark.apache.org/downloads.html) and decompress to the demo directory, `tar -xzvf spark-2.X.X-bin-hadoop2.X.tgz && mv spark-2.X.X-bin-hadoop2.X Spark`.
-![spark_download](misc/spark_download.png)
 
 Download SLAD source code under the demo directory.
 ```bash
@@ -39,6 +38,7 @@ git clone https://github.com/vitmy0000/SLAD.git
 Download the [demo sequence file](https://buffalo.box.com/s/jm18zyifyeqbb3773w2tsp6bcze3dugt) and create a directory named `Demo` for storing it.
 
 To this end, the demo directory should have the following layout.
+
 ![tree](misc/tree.png)
 
 #### Launch cluster
