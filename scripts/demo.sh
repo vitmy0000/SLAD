@@ -32,23 +32,23 @@ time \
 --output-dir "./res/" \
 --word-size 8 \
 --abundance 2 \
---radius 0.17 \
---min-size 500 \
---num-leave-cluster 0 \
+--radius 0.15 \
+--min-size 100 \
+--num-leave-cluster 8 \
 --num-power-iteration 10 \
 --random-seed 0 \
 2> /dev/null 
-../SLAD/scripts/u9_mac -usearch_global "./seqs.fa" -db "./res/landmarks.fa" -id 0.6 -blast6out "./res/hit.txt" -strand plus -threads 4
+../vsearch/bin/vsearch -usearch_global "./seqs.fa" -db "./res/landmarks.fa" -id 0.6 -blast6out "./res/hit.txt" -strand plus -threads 4
 mkdir res/clusters/
-python ../SLAD/scripts/partition.py -f ./seqs.fa -u ./res/hit.txt -o ./res/clusters -c ./res/sub_count.txt
+python ../SLAD/scripts/partition.py -f "./seqs.fa" -u "./res/hit.txt" -o "./res/clusters" -c "./res/sub_count.txt"
 rm -r res/derep
 rm -r res/partition
 
 # Sub-clustering phase
 for x in $(ls ./res/clusters/); do
     { \
-    ../SLAD/scripts/u9_mac --sortbylength ./res/clusters/${x} --fastaout ./res/clusters/${x}_sorted.fa; \
-    ../SLAD/scripts/u9_mac -cluster_smallmem ./res/clusters/${x}_sorted.fa -id 0.97 -centroids ./res/clusters/${x}_centroids.fa -userout ./res/clusters/${x}_user.txt -userfields query+target+id; \
+    ../vsearch/bin/vsearch --sortbylength ./res/clusters/${x} --output ./res/clusters/${x}_sorted.fa; \
+    ../vsearch/bin/vsearch -cluster_smallmem ./res/clusters/${x}_sorted.fa -id 0.97 -centroids ./res/clusters/${x}_centroids.fa -userout ./res/clusters/${x}_user.txt -userfields query+target+id; \
     rm ./res/clusters/${x}_sorted.fa; \
     } &
 done

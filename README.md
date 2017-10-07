@@ -11,7 +11,9 @@ SLAD (Separation via Landmark-based Active Divisive clustering) is a generic com
 
 ## Demo
 
-A demo of SLAD coupled with [UCLUST](https://www.drive5.com/usearch/download.html) with a single multi-core Mac machine.
+A demo of SLAD coupled with [vsearch](https://github.com/torognes/vsearch) on a single multi-core Mac machine.
+`vsearch` is a versatile open-source tool for metagenomics.
+SLAD also uses [scallop](https://github.com/scallop/scallop) for command-line arguments parsing.
 
 #### Setup
 
@@ -30,6 +32,17 @@ brew install sbt
 
 Download [Apache Spark](https://spark.apache.org/downloads.html) and decompress to the demo directory, `tar -xzvf spark-2.X.X-bin-hadoop2.X.tgz && mv spark-2.X.X-bin-hadoop2.X Spark`.
 
+Download [vsearch](https://github.com/torognes/vsearch) and compile it. 
+GNU autotools (version 2.63 or later) and the gcc compiler is required to build vsearch.
+After compilation, the `vsearch` executable file will be placed under `vsearch/bin`.
+```bash
+git clone https://github.com/torognes/vsearch.git
+cd vsearch
+./autogen.sh
+./configure
+make
+```
+
 Download SLAD source code under the demo directory.
 ```bash
 git clone https://github.com/vitmy0000/SLAD.git
@@ -38,6 +51,9 @@ git clone https://github.com/vitmy0000/SLAD.git
 Download the [demo sequence file](https://buffalo.box.com/s/jm18zyifyeqbb3773w2tsp6bcze3dugt) and create a directory named `Demo` for storing it.
 
 To this end, the demo directory should have the following layout.
+```bash
+tree -L 2 -C SLAD_DEMO/
+```
 
 ![tree](misc/tree.png)
 
@@ -160,23 +176,23 @@ time \
 --output-dir "./res/" \
 --word-size 8 \
 --abundance 2 \
---radius 0.17 \
---min-size 500 \
---num-leave-cluster 0 \
+--radius 0.15 \
+--min-size 100 \
+--num-leave-cluster 8 \
 --num-power-iteration 10 \
 --random-seed 0 \
-2> /dev/null
-../SLAD/scripts/u9_mac -usearch_global "./seqs.fa" -db "./res/landmarks.fa" -id 0.6 -blast6out "./res/hit.txt" -strand plus -threads 4
+2> /dev/null 
+../vsearch/bin/vsearch -usearch_global "./seqs.fa" -db "./res/landmarks.fa" -id 0.6 -blast6out "./res/hit.txt" -strand plus -threads 4
 mkdir res/clusters/
-python ../SLAD/scripts/partition.py -f ./seqs.fa -u ./res/hit.txt -o ./res/clusters -c ./res/sub_count.txt
+python ../SLAD/scripts/partition.py -f "./seqs.fa" -u "./res/hit.txt" -o "./res/clusters" -c "./res/sub_count.txt"
 rm -r res/derep
 rm -r res/partition
 
 # Sub-clustering phase
 for x in $(ls ./res/clusters/); do
     { \
-    ../SLAD/scripts/u9_mac --sortbylength ./res/clusters/${x} --fastaout ./res/clusters/${x}_sorted.fa; \
-    ../SLAD/scripts/u9_mac -cluster_smallmem ./res/clusters/${x}_sorted.fa -id 0.97 -centroids ./res/clusters/${x}_centroids.fa -userout ./res/clusters/${x}_user.txt -userfields query+target+id; \
+    ../vsearch/bin/vsearch --sortbylength ./res/clusters/${x} --output ./res/clusters/${x}_sorted.fa; \
+    ../vsearch/bin/vsearch -cluster_smallmem ./res/clusters/${x}_sorted.fa -id 0.97 -centroids ./res/clusters/${x}_centroids.fa -userout ./res/clusters/${x}_user.txt -userfields query+target+id; \
     rm ./res/clusters/${x}_sorted.fa; \
     } &
 done
