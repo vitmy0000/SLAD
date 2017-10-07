@@ -24,7 +24,6 @@ time \
 --master "${MASTER_URL}" \
 --conf spark.default.parallelism=16 \
 --conf spark.executor.memory=8G \
---conf spark.eventLog.enabled=false \
 --class "com.weiz.slad.Program" \
 --jars \
 ../SLAD/lib/scallop_2.11-2.1.2.jar \

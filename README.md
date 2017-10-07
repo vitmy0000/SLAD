@@ -61,6 +61,69 @@ sbt package
 
 #### Run
 
+Check the help information
+```bash
+../Spark/bin/spark-submit \
+--master spark://coe-biomac3002.med.buffalo.edu:7077 \
+--conf spark.default.parallelism=16 \
+--conf spark.executor.memory=8G \
+--class "com.weiz.slad.Program" \
+--jars \
+../SLAD/lib/scallop_2.11-2.1.2.jar \
+../SLAD/target/scala-2.11/slad_2.11-0.1.0.jar \
+--help
+```
+
+```
+        ____  _        _    ____
+       / ___|| |      / \  |  _ \
+       \___ \| |     / _ \ | | | |
+        ___) | |___ / ___ \| |_| |
+       |____/|_____/_/   \_\____/
+
+Version 0.1.0 (C) 2016 Wei Zheng
+Usage: slad -i INPUT_FILE_PAHT -o OUTPUT_DIR [OPTION]...
+
+SLAD is an Spark based parallel framework for denovo OTU picking.
+Options:
+
+      --abundance  <arg>             Sequences with abundance greater than or
+                                     equal to this threshold will be treated as
+                                     non-trivial sequences.
+                                     Required to be posotive integer.
+                                     Default: 2
+  -i, --input-file-path  <arg>       (REQUIRED)Input fasta file.
+      --min-size  <arg>              Clusters with size smaller than this
+                                     threshold will not be further partitioned.
+                                     Required to be positive integer >= 100
+                                     Default: 100
+      --num-leave-cluster  <arg>     Number of desired leave clusters
+                                     If set to 0, this option has no effect.
+                                     Required to be posotive integer or 0.
+                                     Default: 0
+      --num-power-iteration  <arg>   Number of PIC iterations.
+                                     Required to be posotive integer.
+                                     Default: 10
+  -o, --output-dir  <arg>            (REQUIRED)Output directory.
+                                     Directory will be created automatically.
+                                     Make sure the directory does not exisit.
+                                     Default: "./slad_results"
+      --radius  <arg>                Clusters with radius smaller than this
+                                     threshold will not be further partitioned.
+                                     Required to be a double between 0 and 1.
+                                     Default: 0.15
+      --random-seed  <arg>           Random seed.
+                                     This option will effect landmark selection.
+                                     Default: 0
+      --word-size  <arg>             Kmer word size.
+                                     Required to be positive integer and < 16.
+                                     Default: 8
+      --help                         Show help message
+      --version                      Show version of this program
+
+For all other tricks, consult the documentation!
+```
+
 Below is a sample script for demo and it is available under `SLAD/scripts`.
 ```bash
 #!/usr/bin/env bash
@@ -89,7 +152,6 @@ time \
 --master "${MASTER_URL}" \
 --conf spark.default.parallelism=16 \
 --conf spark.executor.memory=8G \
---conf spark.eventLog.enabled=false \
 --class "com.weiz.slad.Program" \
 --jars \
 ../SLAD/lib/scallop_2.11-2.1.2.jar \
