@@ -118,8 +118,8 @@ object Program {
     println("Dereplicating...")
     val inputStrDerep: RDD[(String, mutable.HashSet[String])] =
       inputStr.map(_.replaceFirst("\\n", "\n\u0000")
-      .replace("\u0000", "").split("\n") match {
-        case Array(header, read) => (read, header)
+      .replace("\n", "").split("\u0000") match {
+        case Array(header, read) => (read.toUpperCase, header)
       }).aggregateByKey(mutable.HashSet.empty[String])(
         //addToHeaderSet, mergeHeaderSets
         (s: mutable.HashSet[String], v: String) => s += v,
