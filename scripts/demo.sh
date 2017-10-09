@@ -2,7 +2,7 @@
 set -o errexit
 set -o pipefail
 # set -o nounset
-# set -o xtrace
+set -o xtrace
 
 # SET VARIABLES
 INPUT_FASTA="./seqs.fa"
@@ -52,19 +52,27 @@ ${SLAD_DIR}/target/scala-2.11/slad_2.11-0.1.0.jar \
 --num-leave-cluster ${NUM_LEAVE_CLUSTER} \
 --num-power-iteration ${NUM_POWER_ITERATION} \
 --random-seed ${RANDOM_SEED} \
-2> /dev/null 
-${VSEARCH_DIR}/bin/vsearch -usearch_global "${INPUT_FASTA}" -db "${OUTPUT_DIR}/landmarks.fa" -id 0.6 -blast6out "${OUTPUT_DIR}/hit.txt" -strand plus -threads ${NUM_CORE}
-mkdir res/clusters/
+2> /dev/null
+mkdir ${OUTPUT_DIR}/non_blank
+mkdir ${OUTPUT_DIR}/hit
+for x in $(ls ${OUTPUT_DIR}/derep/part-*); do
+    sed 's/ //g' "${x}" > "${OUTPUT_DIR}/non_blank/$(basename ${x})"
+    ${VSEARCH_DIR}/bin/vsearch -usearch_global "${OUTPUT_DIR}/non_blank/$(basename ${x})" -db "${OUTPUT_DIR}/landmarks.fa" -id 0.6 -blast6out "${OUTPUT_DIR}/hit/$(basename ${x})" -strand plus -threads ${NUM_CORE}
+done
+cat ${OUTPUT_DIR}/hit/* > "${OUTPUT_DIR}/hit.txt"
+rm -r ${OUTPUT_DIR}/derep
+rm -r ${OUTPUT_DIR}/partition
+rm -r ${OUTPUT_DIR}/hit
+rm -r ${OUTPUT_DIR}/non_blank
+mkdir ${OUTPUT_DIR}/clusters
 python ${SLAD_DIR}/scripts/partition.py -f "${INPUT_FASTA}" -u "${OUTPUT_DIR}/hit.txt" -o "${OUTPUT_DIR}/clusters" -c "${OUTPUT_DIR}/sub_count.txt"
-rm -r res/derep
-rm -r res/partition
 
 # Sub-clustering phase
-for x in $(ls ${OUTPUT_DIR}/clusters/); do
+for x in $(ls ${OUTPUT_DIR}/clusters); do
     { \
     ../vsearch/bin/vsearch --sortbylength ${OUTPUT_DIR}/clusters/${x} --output ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
     ../vsearch/bin/vsearch -cluster_smallmem ${OUTPUT_DIR}/clusters/${x}_sorted.fa -id ${OTU_LEVEL} -centroids ${OUTPUT_DIR}/clusters/${x}_centroids.fa -userout ${OUTPUT_DIR}/clusters/${x}_user.txt -userfields query+target+id; \
-    rm ./res/clusters/${x}_sorted.fa; \
+    rm ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
     } &
 done
 for job in `jobs -p`; do
