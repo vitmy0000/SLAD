@@ -230,11 +230,16 @@ done
 echo 'All done!'
 ```
 
-To run the demo script.
+To run the demo script
 ```bash
 cd SLAD_DEMO/Demo
 cp ../SLAD/scripts/demo.sh .
 bash demo.sh
+```
+
+To clean up
+```bash
+rm -r Spark/work/*
 ```
 
 ### EC2

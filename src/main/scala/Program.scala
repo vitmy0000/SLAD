@@ -109,8 +109,9 @@ object Program {
     // LOAD INPUT
     println("Loading input...")
     sc.hadoopConfiguration.set("textinputformat.record.delimiter", ">")
-    val inputStr = sc.textFile(sladInputFilePath, sc.defaultParallelism)
-        .filter(_.size > 0) // need to remove first empty string
+    val inputStr: RDD[String] = sc.textFile(
+      sladInputFilePath, sc.defaultParallelism)
+    .filter(_.size > 0) // need to remove first empty string
     println("Partition number: " + inputStr.getNumPartitions)
     println("Input sequence number: %d".format(inputStr.count()))
 
@@ -139,6 +140,7 @@ object Program {
     inputStrDerep.unpersist()
     println("Abundant sequence number: %d".format(seqs.count()))
 
+    // LADC
     val random: Random = new Random(sladRandomSeed)
     val slad = new SLAD(
         sc, random, sladNumPowerIteration,
@@ -146,12 +148,10 @@ object Program {
     val (clusterIndcies, leaveClusterLandmarkInfo)
         : (RDD[Int], Map[Int, List[String]]) = slad.run(seqs)
 
+    // OUTPUT
     clusterIndcies.zip(seqs).map { case (clusterIndex, seq) =>
       s">cluster_$clusterIndex\n${seq.getRead}"
     }.saveAsTextFile(sladOutputDir + "/partition")
-
-
-
     val file = new File(sladOutputDir + "/landmarks.fa")
     val bw = new BufferedWriter(new FileWriter(file))
     bw.write(
