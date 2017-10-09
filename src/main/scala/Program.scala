@@ -124,7 +124,7 @@ object Program {
         //addToHeaderSet, mergeHeaderSets
         (s: mutable.HashSet[String], v: String) => s += v,
         (s1: mutable.HashSet[String], s2: mutable.HashSet[String]) => s1 ++= s2)
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY_SER)//.cache()
     println("Unique sequence number: %d".format(inputStrDerep.count()))
     inputStrDerep.map {
       case (read, headers) => s">$headers\n$read"
