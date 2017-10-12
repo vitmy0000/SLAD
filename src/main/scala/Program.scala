@@ -11,7 +11,6 @@ import org.apache.spark.HashPartitioner
 import org.rogach.scallop._
 import scala.collection.mutable
 import scala.util.Random
-import java.io._
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   version("Version 0.1.0 (C) 2016 Wei Zheng")
@@ -29,6 +28,12 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
               |Directory will be created automatically.   |
               |Make sure the directory does not exisit.   |
               |Default: "./slad_results" """
+              .stripMargin.replace("|\n", " "))
+  val awsAccessId = opt[String](required = true,
+    descr = """(REQUIRED)AWS_ACCESS_KEY_ID"""
+              .stripMargin.replace("|\n", " "))
+  val awsAccessKey = opt[String](required = true,
+    descr = """(REQUIRED)AWS_SECRET_ACCESS_KEY"""
               .stripMargin.replace("|\n", " "))
   val wordSize = opt[Int](default = Some(8),
     noshort = true, validate = (x => x > 0 && x < 16),
@@ -94,6 +99,8 @@ object Program {
     val sladConf = new Conf(args)
     val sladInputFilePath = sladConf.inputFilePath()
     val sladOutputDir = sladConf.outputDir()
+    val sladAwsAccessId = sladConf.awsAccessId()
+    val sladAwsAccessKey = sladConf.awsAccessKey()
     val sladWordSize = sladConf.wordSize()
     val sladAbundance = sladConf.abundance()
     val sladRadius = sladConf.radius()
@@ -110,8 +117,9 @@ object Program {
     println("Loading input...")
     sc.hadoopConfiguration.set("textinputformat.record.delimiter", ">")
     val inputStr: RDD[String] = sc.textFile(
-      sladInputFilePath, sc.defaultParallelism)
-    .filter(_.size > 0) // need to remove first empty string
+      s"s3a://${sladAwsAccessId}:${sladAwsAccessKey}@${sladInputFilePath}",
+      sc.defaultParallelism).filter(_.size > 0)
+    // need to remove first empty string
     println("Partition number: " + inputStr.getNumPartitions)
     println("Input sequence number: %d".format(inputStr.count()))
 
@@ -129,7 +137,7 @@ object Program {
     println("Unique sequence number: %d".format(inputStrDerep.count()))
     inputStrDerep.map {
       case (read, headers) => s">$headers\n$read"
-    }.saveAsTextFile(sladOutputDir + "/derep")
+    }.saveAsTextFile(s"s3a://${sladAwsAccessId}:${sladAwsAccessKey}@${sladOutputDir}" + "/derep")
 
     // AUNDANCE FILTERING and KMER CONVERSION
     val seqs: RDD[SeqAsKmerCnt] = inputStrDerep.filter { case (read, headers) =>
@@ -151,15 +159,13 @@ object Program {
     // OUTPUT
     clusterIndcies.zip(seqs).map { case (clusterIndex, seq) =>
       s">cluster_$clusterIndex\n${seq.getRead}"
-    }.saveAsTextFile(sladOutputDir + "/partition")
-    val file = new File(sladOutputDir + "/landmarks.fa")
-    val bw = new BufferedWriter(new FileWriter(file))
-    bw.write(
-      leaveClusterLandmarkInfo.map { case (clusterIndex, landmarks) =>
-        landmarks.map { landmark => s">cluster_$clusterIndex\n$landmark\n" }
-      }.flatten.mkString
-    )
-    bw.close()
+    }.saveAsTextFile(s"s3a://${sladAwsAccessId}:${sladAwsAccessKey}@${sladOutputDir}" + "/partition")
+    val landmarks: Seq[String] = leaveClusterLandmarkInfo.map { 
+      case (clusterIndex, landmarks) =>
+      landmarks.map { landmark => s">cluster_$clusterIndex\n$landmark" }
+    }.flatten.toSeq
+    sc.parallelize(landmarks).coalesce(1).saveAsTextFile(
+      s"s3a://${sladAwsAccessId}:${sladAwsAccessKey}@${sladOutputDir}" + "/landmarks")
 
     // end
     sc.stop()
