@@ -52,7 +52,7 @@ ${SLAD_DIR}/target/scala-2.11/slad_2.11-0.1.0.jar \
 --num-leave-cluster ${NUM_LEAVE_CLUSTER} \
 --num-power-iteration ${NUM_POWER_ITERATION} \
 --random-seed ${RANDOM_SEED} \
-2> /dev/null
+2> debug.txt
 mkdir ${OUTPUT_DIR}/non_blank
 mkdir ${OUTPUT_DIR}/hit
 for x in $(ls ${OUTPUT_DIR}/derep/part-*); do
@@ -70,7 +70,7 @@ python ${SLAD_DIR}/scripts/partition.py -f "${INPUT_FASTA}" -u "${OUTPUT_DIR}/hi
 # Sub-clustering phase
 for x in $(ls ${OUTPUT_DIR}/clusters); do
     { \
-    ../vsearch/bin/vsearch --sortbylength ${OUTPUT_DIR}/clusters/${x} --output ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
+    ../vsearch/bin/vsearch -sortbylength ${OUTPUT_DIR}/clusters/${x} -output ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
     ../vsearch/bin/vsearch -cluster_smallmem ${OUTPUT_DIR}/clusters/${x}_sorted.fa -id ${OTU_LEVEL} -centroids ${OUTPUT_DIR}/clusters/${x}_centroids.fa -userout ${OUTPUT_DIR}/clusters/${x}_user.txt -userfields query+target+id; \
     rm ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
     } &
