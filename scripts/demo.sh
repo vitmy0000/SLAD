@@ -53,8 +53,8 @@ ${SLAD_DIR}/target/scala-2.11/slad_2.11-0.1.0.jar \
 --num-power-iteration ${NUM_POWER_ITERATION} \
 --random-seed ${RANDOM_SEED} \
 2> debug.txt
-mkdir ${OUTPUT_DIR}/non_blank
-mkdir ${OUTPUT_DIR}/hit
+mkdir -p ${OUTPUT_DIR}/non_blank
+mkdir -p ${OUTPUT_DIR}/hit
 for x in $(ls ${OUTPUT_DIR}/derep/part-*); do
     sed 's/ //g' "${x}" > "${OUTPUT_DIR}/non_blank/$(basename ${x})"
     ${VSEARCH_DIR}/bin/vsearch -usearch_global "${OUTPUT_DIR}/non_blank/$(basename ${x})" -db "${OUTPUT_DIR}/landmarks.fa" -id 0.6 -blast6out "${OUTPUT_DIR}/hit/$(basename ${x})" -strand plus -threads ${NUM_CORE}
@@ -70,13 +70,17 @@ python ${SLAD_DIR}/scripts/partition.py -f "${INPUT_FASTA}" -u "${OUTPUT_DIR}/hi
 # Sub-clustering phase
 for x in $(ls ${OUTPUT_DIR}/clusters); do
     { \
-    ../vsearch/bin/vsearch -sortbylength ${OUTPUT_DIR}/clusters/${x} -output ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
-    ../vsearch/bin/vsearch -cluster_smallmem ${OUTPUT_DIR}/clusters/${x}_sorted.fa -id ${OTU_LEVEL} -centroids ${OUTPUT_DIR}/clusters/${x}_centroids.fa -userout ${OUTPUT_DIR}/clusters/${x}_user.txt -userfields query+target+id; \
-    rm ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
+    ${VSEARCH_DIR}/bin/vsearch -sortbylength ${OUTPUT_DIR}/clusters/${x} -output ${OUTPUT_DIR}/clusters/${x}_sorted.fa; \
+    ${VSEARCH_DIR}/bin/vsearch -cluster_smallmem ${OUTPUT_DIR}/clusters/${x}_sorted.fa -id ${OTU_LEVEL} -centroids ${OUTPUT_DIR}/clusters/${x}_centroids.fa -userout ${OUTPUT_DIR}/clusters/${x}_user.txt -userfields query+target+id; \
+    python ${SLAD_DIR}/scripts/make_otu_table.py -u ${OUTPUT_DIR}/clusters/${x}_user.txt -o ${OUTPUT_DIR}/clusters/${x}_table.txt; \
     } &
 done
 for job in `jobs -p`; do
     wait $job
 done
+
+# Build OTU table from clustering results
+mkdir -p ${OUTPUT_DIR}/table
+python ${SLAD_DIR}/scripts/collect.py -i ${OUTPUT_DIR}/clusters/cluster_*_table.txt -c ${OUTPUT_DIR}/clusters/cluster_*_centroids.fa -o ${OUTPUT_DIR}/table
 
 echo 'All done!'
