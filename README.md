@@ -248,6 +248,157 @@ rm -r Spark/work/*
 
 ### EC2
 
+This section gives a quick demo of running SLAD coupled with [vsearch](https://github.com/torognes/vsearch) in a distrubuted evironment. Please note that we run the top-level partition phase on [AWS EMR](https://aws.amazon.com/emr/) and the sub-clustering phase can run on a cluster with simple job scheduling system, e.g. [slurm](https://slurm.schedmd.com/).
+
+#### Launch AWS EC2 cluster
+
+1. Login to AWS EMR service, create a new cluster.
+![emr_create](misc/emr_create.png)
+
+2. Configure the cluster. 
+
+Specify the `Cluster name` as you like, choose `Spark` for `Applications` and select your `EC2 key pair`(Please follow the help link to creat a new one, if you are new to AWS EC2). For `Instance type` and `Number of instances`, please check the AWS EC2 instance [types](https://aws.amazon.com/ec2/instance-types/) and [prices](https://aws.amazon.com/ec2/pricing/on-demand/) to make sure the memory and CPU cores fit the data and use the money wisely! 😄
+![emr_config](misc/emr_config.png)
+
+3. Connect to the cluster. 
+
+First wait a minite for all the instances to boot up and then connect using SSH. The `.pem` file is the `EC2 key pair`. We also recommend to use `Tmux` to prevent connection loss.
+![emr_wait](misc/emr_wait.png)
+![emr_ssh](misc/emr_ssh.png)
+
+#### Transferring data
+
+`AWS S3` can be used for storing input and output data. You can optionally use `GUI` by dragging and dropping the file into browser or the command line. After the job is finished, output files are also saved into `S3`. Please download the results and clean up `S3` to avoid unnecessary storage charges.
+
+create a bucket
+![s3](misc/s3.png)
+
+Setup a python virtual environment for data transferring using `AWS Command Line Interface`.
+`aws configure` will ask for `AWS Access Key ID` and `AWS Secret Access Key`. Please generate it using [AWS IAM](https://aws.amazon.com/iam/) and save it.
+```bash
+conda create -m -p s3-env python=2.7
+source activate s3-env
+pip install awscli
+aws configure
+```
+
+Upload input data
+```bash
+aws s3 cp IBD_sample_filtered.fna s3://weiz-ibd/
+```
+
+Download output data
+```bash
+aws s3 sync s3://weiz-ibd/slad_out slad_out
+```
+
+#### Top-level partition
+
+After logging into EC2 cluster, run the SLAD job.
+```bash
+# install sbt and git
+sudo yum -y install sbt
+sudo yum -y install git
+
+# download source code and compile
+git clone https://github.com/vitmy0000/SLAD.git
+cd SLAD
+bash get_all_branches.sh
+git checkout ec2
+sbt package 
+cd ..
+
+# run the job script
+cp SLAD/scripts/ec2.sh .
+bash ec2.sh
+``` 
+
+Below is an example of _ec2.sh_ and it is available under `SLAD/scripts`. Please change the parameters accordingly and provide your own `AWS Access Key ID` and `AWS Secret Access Key` information.
+```bash
+{ time \
+spark-submit \
+--master yarn \
+--deploy-mode client \
+--class "com.weiz.slad.Program" \
+--executor-cores 4 \
+--conf "spark.default.parallelism=64" \
+--conf "spark.dynamicAllocation.enabled=false" \
+--jars \
+SLAD/lib/aws-java-sdk-core-1.10.62.jar,\
+SLAD/lib/aws-java-sdk-s3-1.10.62.jar,\
+SLAD/lib/scallop_2.11-2.1.2.jar \
+SLAD/target/scala-2.11/slad_2.11-0.1.0.jar \
+--input-file-path "weiz-ibd/IBD_sample_filtered.fna" \
+--output-dir "weiz-ibd/slad_out" \
+--aws-access-id "XXXXXXXXXXXXXXXXXXXX" \
+--aws-access-key "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" \
+--word-size 8 \
+--abundance 2 \
+--radius 0.20 \
+--min-size 1000 \
+--num-leave-cluster 64 \
+--num-power-iteration 10 \
+--random-seed 0 \
+2> debug.txt ; \
+} 2> time.txt
+```
+
+#### Parallel sub-clustering
+
+After the job is finished on EC2 cluster, download the results.
+```bash
+aws s3 sync s3://weiz-ibd/slad_out slad_out
+```
+
+Download SLAD code which includes scripts for `vsearch` sub-clustering.
+```bash
+git clone https://github.com/vitmy0000/SLAD.git
+cd SLAD
+bash get_all_branches.sh
+git checkout ec2
+cd ..
+```
+
+Download and compile `vsearch`.
+```bash
+git clone https://github.com/torognes/vsearch.git
+cd vsearch
+./autogen.sh
+./configure
+make
+cd ..
+```
+
+Assume there are following items in current directory:
+- slad_out
+- SLAD
+- vsearch
+
+Run post-processing 
+```bash
+mkdir post
+cd post
+
+# STEP 1
+python ../SLAD/scripts/ec2_post_1.py -i ../slad_out -v ../vsearch -s ../SLAD
+for x in $(ls post_1_*.sh); do sbatch ${x}; done
+
+# Wait for all step 1 jobs to finish
+mkdir clusters
+for x in $(sed -n 's/^>//p' ../slad_out/landmarks/part-00000 | sort | uniq); do cat clusters_part-*/${x} > clusters/${x}; done
+
+# STEP 2
+wget http://drive5.com/uchime/gold.fa
+python ../SLAD/scripts/ec2_post_2.py -v ../vsearch -s ../SLAD -g gold.fa -l 0.97
+for x in $(ls post_2_*.sh); do sbatch ${x}; done
+
+# Wait for all step 2 jobs to finish
+mkdir table
+python ../SLAD/scripts/collect.py -i clusters/cluster_*_table.txt -c clusters/cluster_*_centroids.fa -o table
+```
+
+The raw OTU table and representative sequences are placed under `post/table` directory.
+The chimera check step is included in the post-processing and we recommend to [remove spurious OTUs](http://qiime.org/scripts/filter_otus_from_otu_table.html) before diving into down-stream data analysis.  
 
 ## Tips
 
