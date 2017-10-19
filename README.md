@@ -274,7 +274,7 @@ create a bucket
 ![s3](misc/s3.png)
 
 Setup a python virtual environment for data transferring using `AWS Command Line Interface`.
-`aws configure` will ask for `AWS Access Key ID` and `AWS Secret Access Key`. Please generate it using [AWS IAM](https://aws.amazon.com/iam/) and save it. (Make sure you `AWS Secret Access Key` does not contain `/`)
+`aws configure` will ask for `AWS Access Key ID` and `AWS Secret Access Key`. Please generate it using [AWS IAM](https://aws.amazon.com/iam/) and save it. (Make sure your `AWS Access Key ID` and `AWS Secret Access Key` do not contain `/`)
 ```bash
 conda create -m -p s3-env python=2.7
 source activate s3-env
