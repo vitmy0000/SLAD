@@ -35,7 +35,7 @@ Download [Apache Spark](https://spark.apache.org/downloads.html) and decompress 
 tar -xzvf spark-2.X.X-bin-hadoop2.X.tgz && mv spark-2.X.X-bin-hadoop2.X Spark
 ```
 
-Download [vsearch](https://github.com/torognes/vsearch) and compile it. 
+Download [vsearch](https://github.com/torognes/vsearch) and compile it.
 GNU autotools (version 2.63 or later) and the gcc compiler is required to build vsearch.
 After compilation, the `vsearch` executable file will be placed under `vsearch/bin`.
 ```bash
@@ -163,7 +163,7 @@ MEMORY=8G
 NUM_CORE=4
 OTU_LEVEL=0.97
 NUM_LEAVE_CLUSTER=8
-## For termination condition, we recommend to set 
+## For termination condition, we recommend to set
 ## NUM_LEAVE_CLUSTER to 2 X NUM_CORE
 ## and leave other two as default.
 ## Please check the paper for more detailed discussion.
@@ -255,12 +255,12 @@ This section gives a quick demo of running SLAD coupled with [vsearch](https://g
 1. Login to AWS EMR service, create a new cluster.
 ![emr_create](misc/emr_create.png)
 
-2. Configure the cluster. 
+2. Configure the cluster.
 
 Specify the `Cluster name` as you like, choose `Spark` for `Applications` and select your `EC2 key pair`(Please follow the help link to creat a new one, if you are new to AWS EC2). For `Instance type` and `Number of instances`, please check the AWS EC2 instance [types](https://aws.amazon.com/ec2/instance-types/) and [prices](https://aws.amazon.com/ec2/pricing/on-demand/) to make sure the memory and CPU cores fit the data and use the money wisely! 😄
 ![emr_config](misc/emr_config.png)
 
-3. Connect to the cluster. 
+3. Connect to the cluster.
 
 First wait a minite for all the instances to boot up and then connect using SSH. The `.pem` file is the `EC2 key pair`. We also recommend to use `Tmux` to prevent connection loss.
 ![emr_wait](misc/emr_wait.png)
@@ -274,7 +274,7 @@ create a bucket
 ![s3](misc/s3.png)
 
 Setup a python virtual environment for data transferring using `AWS Command Line Interface`.
-`aws configure` will ask for `AWS Access Key ID` and `AWS Secret Access Key`. Please generate it using [AWS IAM](https://aws.amazon.com/iam/) and save it.
+`aws configure` will ask for `AWS Access Key ID` and `AWS Secret Access Key`. Please generate it using [AWS IAM](https://aws.amazon.com/iam/) and save it. (Make sure you `AWS Secret Access Key` does not contain `/`)
 ```bash
 conda create -m -p s3-env python=2.7
 source activate s3-env
@@ -305,13 +305,13 @@ git clone https://github.com/vitmy0000/SLAD.git
 cd SLAD
 bash get_all_branches.sh
 git checkout ec2
-sbt package 
+sbt package
 cd ..
 
 # run the job script
 cp SLAD/scripts/ec2.sh .
 bash ec2.sh
-``` 
+```
 
 Below is an example of _ec2.sh_ and it is available under `SLAD/scripts`. Please change the parameters accordingly and provide your own `AWS Access Key ID` and `AWS Secret Access Key` information.
 ```bash
@@ -374,7 +374,7 @@ Assume there are following items in current directory:
 - SLAD
 - vsearch
 
-Run post-processing 
+Run post-processing
 ```bash
 mkdir post
 cd post
@@ -398,7 +398,7 @@ python ../SLAD/scripts/collect.py -i clusters/cluster_*_table.txt -c clusters/cl
 ```
 
 The raw OTU table and representative sequences are placed under `post/table` directory.
-The chimera check step is included in the post-processing and we recommend to [remove spurious OTUs](http://qiime.org/scripts/filter_otus_from_otu_table.html) before diving into down-stream data analysis.  
+The chimera check step is included in the post-processing and we recommend to [remove spurious OTUs](http://qiime.org/scripts/filter_otus_from_otu_table.html) before diving into down-stream data analysis.
 
 ## Tips
 
