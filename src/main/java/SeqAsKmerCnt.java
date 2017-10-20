@@ -24,7 +24,7 @@ public class SeqAsKmerCnt implements Serializable {
   public SeqAsKmerCnt(String read, int wordSize) {
     this.read = read;
     this.wordSize = wordSize;
-    short[] fullSizeArray = new short[2 << (2 * wordSize)];
+    short[] fullSizeArray = new short[1 << (2 * wordSize)];
     int index = 0;
     for (int i = 0; i < wordSize - 1; i++) {
       index <<= 2;
