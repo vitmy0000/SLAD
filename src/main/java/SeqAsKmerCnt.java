@@ -24,7 +24,6 @@ public class SeqAsKmerCnt implements Serializable {
   public SeqAsKmerCnt(String read, int wordSize) {
     this.read = read;
     this.wordSize = wordSize;
-    indexArray = new int[read.length() - wordSize + 1];
     short[] fullSizeArray = new short[2 << (2 * wordSize)];
     int index = 0;
     for (int i = 0; i < wordSize - 1; i++) {
@@ -33,7 +32,7 @@ public class SeqAsKmerCnt implements Serializable {
     }
     int mask = (1 << 2 * wordSize) - 1;
     int compactSize = 0;
-    for (int i = 0; i < indexArray.length; i++) {
+    for (int i = 0; i < read.length() - wordSize + 1; i++) {
       index <<= 2;
       index |= charMap[read.charAt(wordSize - 1 + i)];
       index &= mask;
