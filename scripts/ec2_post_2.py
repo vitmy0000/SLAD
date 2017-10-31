@@ -23,13 +23,14 @@ template = Template('''\
 
 set -o errexit
 ulimit -s unlimited
+module load python/anaconda2-4.2.0
 
 python ${slad_dir}/scripts/sizeout_ec2.py -f "clusters/${x}" -o "clusters/${x}_sizeout.fa"
 ${vsearch_dir}/bin/vsearch -sortbysize "clusters/${x}_sizeout.fa" -output "clusters/${x}_sorted.fa" -minsize 2
 ${vsearch_dir}/bin/vsearch -cluster_smallmem "clusters/${x}_sorted.fa" -usersort -id "${otu_level}" -centroids "clusters/${x}_centroids.fa" -userout "clusters/${x}_user.txt" -userfields "query+target+id"
 ${vsearch_dir}/bin/vsearch -uchime_ref "clusters/${x}_centroids.fa" -db ${gold_fa} -strand plus -nonchimeras "clusters/${x}_otus.fa"
-${vsearch_dir}/bin/vsearch -usearch_global "clusters/${x}" -db "clusters/${x}_otus.fa" -strand plus -id ${otu_level} -blast6out "clusters/${x}_hit.txt"
-python ${slad_dir}/scripts/make_otu_table_ec2.py -u "clusters/${x}_user.txt" -o "clusters/${x}_table.txt"
+${vsearch_dir}/bin/vsearch -usearch_global "clusters/${x}_sizeout.fa" -db "clusters/${x}_otus.fa" -strand plus -id ${otu_level} -blast6out "clusters/${x}_hit.txt"
+python ${slad_dir}/scripts/make_otu_table_ec2.py -u "clusters/${x}_hit.txt" -o "clusters/${x}_table.txt"
 
 echo 'All done!'
 ''')
